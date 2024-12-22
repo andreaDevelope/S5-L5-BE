@@ -21,6 +21,7 @@ import java.util.Scanner;
 
 @Component
 public class MainRunner implements CommandLineRunner {
+
     @Autowired
     private BuildingServ buildingServ;
 
@@ -47,11 +48,13 @@ public class MainRunner implements CommandLineRunner {
             System.out.println("4. Effettua una prenotazione");
             System.out.println("5. Ricerca postazioni per tipo e città");
             System.out.println("6. Visualizza tutte le prenotazioni");
-            System.out.println("7. Esci");
+            System.out.println("7. Elimina una prenotazione");
+            System.out.println("8. Modifica una prenotazione");
+            System.out.println("9. Esci");
             System.out.print("Seleziona un'opzione: ");
 
             int choice = scanner.nextInt();
-            scanner.nextLine(); // Consuma newline
+            scanner.nextLine();
 
             switch (choice) {
                 case 1 -> addBuilding();
@@ -60,7 +63,9 @@ public class MainRunner implements CommandLineRunner {
                 case 4 -> makeReservation();
                 case 5 -> searchStations();
                 case 6 -> listReservations();
-                case 7 -> exit = true;
+                case 7 -> deleteReservation();
+                case 8 -> updateReservation();
+                case 9 -> exit = true;
                 default -> System.out.println("Opzione non valida. Riprova.");
             }
         }
@@ -101,18 +106,12 @@ public class MainRunner implements CommandLineRunner {
             return;
         }
 
-        Building b;
-        if (buildingOpt.isPresent()) {
-            b = buildingOpt.get();
-        } else {
-            throw new EntityNotFoundException("Entità non trovata con ID: " + buildingId);
-        }
-
+        Building building = buildingOpt.get();
         Station station = new Station();
         station.setDescription(description);
         station.setType(Type.valueOf(type));
         station.setMaximumOccupancy(maxOccupancy);
-        station.setBuilding(b);
+        station.setBuilding(building);
 
         stationServ.save(station);
         System.out.println("Postazione aggiunta con successo!");
@@ -138,6 +137,30 @@ public class MainRunner implements CommandLineRunner {
         System.out.println("Utente aggiunto con successo!");
     }
 
+    private void searchStations() {
+        System.out.print("Inserisci il tipo di postazione (PRIVATO, OPENSPACE, SALA_RIUNIONI): ");
+        String type = scanner.nextLine().toUpperCase();
+        System.out.print("Inserisci la città: ");
+        String city = scanner.nextLine();
+
+        List<Station> stations = stationServ.findByTypeAndCity(Type.valueOf(type), city);
+        if (stations.isEmpty()) {
+            System.out.println("Nessuna postazione trovata.");
+        } else {
+            stations.forEach(station -> System.out.println(station.getDescription()));
+        }
+    }
+
+    private void listReservations() {
+        List<Reservation> reservations = reservationServ.findAll();
+        reservations.forEach(reservation -> {
+            System.out.printf("Utente: %s, Postazione: %s, Data: %s%n",
+                    reservation.getUser().getUsername(),
+                    reservation.getStation().getDescription(),
+                    reservation.getDay());
+        });
+    }
+
     private void makeReservation() {
         System.out.print("Inserisci lo username dell'utente: ");
         String username = scanner.nextLine();
@@ -149,6 +172,11 @@ public class MainRunner implements CommandLineRunner {
 
         if (reservationServ.hasReservationOnDate(username, date)) {
             System.out.println("L'utente ha già una prenotazione per questa data.");
+            return;
+        }
+
+        if (!reservationServ.isStationAvailable(stationId, date)) {
+            System.out.println("La postazione non è disponibile per la data selezionata.");
             return;
         }
 
@@ -174,28 +202,44 @@ public class MainRunner implements CommandLineRunner {
         System.out.println("Prenotazione effettuata con successo!");
     }
 
-    private void searchStations() {
-        System.out.print("Inserisci il tipo di postazione (PRIVATO, OPENSPACE, SALA_RIUNIONI): ");
-        String type = scanner.nextLine().toUpperCase();
-        System.out.print("Inserisci la città: ");
-        String city = scanner.nextLine();
+    private void deleteReservation() {
+        System.out.print("Inserisci l'ID della prenotazione da eliminare: ");
+        Long reservationId = scanner.nextLong();
 
-        List<Station> stations = stationServ.findByTypeAndCity(Type.valueOf(type), city);
-        if (stations.isEmpty()) {
-            System.out.println("Nessuna postazione trovata.");
-        } else {
-            stations.forEach(station -> System.out.println(station.getDescription()));
+        try {
+            reservationServ.deleteById(reservationId);
+            System.out.println("Prenotazione eliminata con successo!");
+        } catch (EntityNotFoundException e) {
+            System.out.println("Prenotazione non trovata.");
         }
     }
 
-    private void listReservations() {
-        List<Reservation> reservations = reservationServ.findAll();
-        reservations.forEach(reservation -> {
-            System.out.printf("Utente: %s, Postazione: %s, Data: %s%n",
-                    reservation.getUser().getUsername(),
-                    reservation.getStation().getDescription(),
-                    reservation.getDay());
-        });
+    private void updateReservation() {
+        System.out.print("Inserisci l'ID della prenotazione da modificare: ");
+        Long reservationId = scanner.nextLong();
+        scanner.nextLine();
+
+        Optional<Reservation> reservationOpt = reservationServ.findById(reservationId);
+        if (reservationOpt.isEmpty()) {
+            System.out.println("Prenotazione non trovata.");
+            return;
+        }
+
+        Reservation reservation = reservationOpt.get();
+
+        System.out.print("Inserisci la nuova data della prenotazione (YYYY-MM-DD): ");
+        String dateInput = scanner.next();
+        LocalDate newDate = LocalDate.parse(dateInput);
+
+        if (!reservationServ.isStationAvailable(reservation.getStation().getId(), newDate)) {
+            System.out.println("La postazione non è disponibile per la nuova data selezionata.");
+            return;
+        }
+
+        reservation.setDay(newDate);
+        reservationServ.save(reservation);
+        System.out.println("Prenotazione aggiornata con successo!");
     }
 }
+
 
