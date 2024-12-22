@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Data
 @Entity
@@ -16,18 +15,19 @@ public class Reservation {
 
     private boolean isAvailable;
 
+    @Column(name = "days")
     private LocalDate day;
 
     @ManyToOne
     private User user;
 
-    @ManyToMany
-    private List<Station> stations;
+    @ManyToOne
+    private Station station;
 
 
-    public Reservation(User user, List<Station> stations) {
+    public Reservation(User user, Station station) {
         this.user = user;
-        this.stations = stations;
+        this.station = station;
         this.isAvailable = true;
     }
 

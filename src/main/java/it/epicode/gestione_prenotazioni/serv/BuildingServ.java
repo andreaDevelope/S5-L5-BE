@@ -5,6 +5,8 @@ import it.epicode.gestione_prenotazioni.repo.BuildingRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class BuildingServ {
     @Autowired
@@ -14,4 +16,7 @@ public class BuildingServ {
         br.save(b);
     }
 
+    public Optional<Building> findById(Long id) {
+        return br.findById(id);
+    }
 }
